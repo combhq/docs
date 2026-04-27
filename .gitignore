@@ -1,0 +1,35 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, output of `go test -c`
+*.test
+
+# Output of go coverage tools
+*.out
+coverage.*
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Dependency dirs
+vendor/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key

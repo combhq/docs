@@ -98,18 +98,15 @@ curl -fsS -X POST "$COMBHQ_URL/v1/tenants" \
   }'
 ```
 
+The control plane returns immediately (HTTP 202) with a job ID. The tenant row is created in `pending` and a provisioning job is enqueued.
+
 ```json
 {
-  "id": "5b2a4c8e-1f7e-4a3b-9c4d-1234567890ab",
-  "handle": "acme",
-  "email": "ops@acme.example",
-  "api_key": "cmb_tenant_acme_...",
-  "status": "pending",
-  "created_at": "2026-05-08T14:02:11Z"
+  "job_id": "1f8b3a2c-4d5e-4f6a-8b9c-0d1e2f3a4b5c"
 }
 ```
 
-The `handle` becomes the subdomain: `acme.apps.example.com`. The tenant `api_key` is shown once — store it.
+The `handle` becomes the subdomain: `acme.apps.example.com`. To poll the resulting tenant via `GET /v1/tenants/{id}` you need its UUID — the CLI (`combhq tenants create`) prints both the job ID and the tenant ID; the raw HTTP path doesn't expose a list/lookup-by-handle endpoint in v1.
 
 ### Create a container
 
@@ -133,19 +130,7 @@ curl -fsS -X POST "$COMBHQ_URL/v1/containers" \
   }'
 ```
 
-```json
-{
-  "id": "9f8e7d6c-5b4a-3210-fedc-ba9876543210",
-  "tenant_id": "5b2a4c8e-1f7e-4a3b-9c4d-1234567890ab",
-  "host_id": null,
-  "image": "ghcr.io/combhq/images/hello:latest",
-  "handle": "acme",
-  "status": "pending",
-  "created_at": "2026-05-08T14:02:14Z"
-}
-```
-
-The control plane returns immediately (HTTP 202). Behind the scenes a job picks a host, creates a Cloudflare tunnel, dispatches a `RunContainer` command to the agent, and waits for confirmation.
+Same pattern — `202 Accepted`, `{ "job_id": "..." }`. Behind the scenes the job picks a host, creates a Cloudflare tunnel, dispatches a `RunContainer` command to the agent, and waits for confirmation.
 
 ### Watch it come up
 
@@ -154,7 +139,7 @@ curl -fsS "$COMBHQ_URL/v1/containers/9f8e7d6c-5b4a-3210-fedc-ba9876543210" \
   -H "Authorization: Bearer $COMBHQ_ADMIN_KEY"
 ```
 
-`status` will progress `pending → creating → ready` in a few seconds. Once it is `ready`:
+`status` will progress `pending → creating → running` in a few seconds. Once it is `running`:
 
 ```bash
 curl -fsS https://acme.apps.example.com/

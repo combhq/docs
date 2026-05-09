@@ -1,0 +1,289 @@
+openapi: 3.1.0
+info:
+  title: combhq control-plane
+  version: "1.0.0"
+  description: |
+    Per-tenant container orchestration. The control-plane exposes a REST
+    surface for tenant + admin operations and a separate gRPC port for
+    on-host agent streams (not described here — see combhq/proto).
+
+    Many write endpoints accept work and immediately return 202 with a
+    job ID; the job runs asynchronously via the river queue.
+servers:
+  - url: http://localhost:8080
+    description: Local dev (docker compose)
+
+tags:
+  - name: tenants
+    description: Tenant lifecycle (operator-curated; one container per tenant).
+  - name: containers
+    description: Per-tenant container lifecycle.
+  - name: hosts
+    description: Agent-driven host registration.
+  - name: admin
+    description: Operator-only endpoints.
+  - name: meta
+    description: Health and metadata.
+
+paths:
+  /healthz:
+    get:
+      tags: [meta]
+      summary: Liveness probe
+      description: Returns 200 with body "." while the server is accepting requests.
+      responses:
+        "200":
+          description: alive
+          content:
+            text/plain:
+              schema: { type: string, example: "." }
+
+  /openapi.yaml:
+    get:
+      tags: [meta]
+      summary: OpenAPI specification
+      description: Returns this document.
+      responses:
+        "200":
+          description: ok
+          content:
+            application/yaml:
+              schema: { type: string }
+
+  /v1/tenants:
+    post:
+      tags: [tenants]
+      summary: Register a tenant
+      description: |
+        Creates a tenant record (status `pending`) and enqueues a
+        provisioning job. Returns 202 with the job ID; poll
+        `/v1/tenants/{id}` for the eventual ready state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTenantRequest" }
+      responses:
+        "202":
+          description: accepted; job enqueued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobAccepted" }
+
+  /v1/tenants/{id}:
+    get:
+      tags: [tenants]
+      summary: Get a tenant
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: tenant snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/containers:
+    post:
+      tags: [containers]
+      summary: Create a container for a tenant
+      description: |
+        Enqueues a `provision_container` job: pick host, create CF
+        tunnel + DNS, send RunContainer to the agent, mark ready.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContainerRequest" }
+      responses:
+        "202":
+          description: accepted; job enqueued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobAccepted" }
+
+  /v1/containers/{id}:
+    get:
+      tags: [containers]
+      summary: Get a container
+      parameters:
+        - $ref: "#/components/parameters/ContainerID"
+      responses:
+        "200":
+          description: container snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Container" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/hosts/register:
+    post:
+      tags: [hosts]
+      summary: Register a host
+      description: |
+        Called once by an agent on first connect to exchange a
+        bootstrap token (issued by the manual or cloud driver,
+        15-minute TTL, one-time use) for a long-lived host credential.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterHostRequest" }
+      responses:
+        "202":
+          description: accepted; host record created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobAccepted" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/admin/hosts:
+    get:
+      tags: [admin]
+      summary: List hosts
+      responses:
+        "200":
+          description: hosts known to the control plane
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Host" }
+
+components:
+  parameters:
+    TenantID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ContainerID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: missing or invalid bootstrap token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    JobAccepted:
+      type: object
+      required: [job_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: river queue job ID; opaque to clients.
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    CreateTenantRequest:
+      type: object
+      required: [handle]
+      properties:
+        handle:
+          type: string
+          description: |
+            Public subdomain handle. Must be DNS-safe; uniqueness is
+            enforced by the control plane.
+          pattern: "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+        email: { type: string, format: email }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Tenant:
+      type: object
+      required: [id, handle, status]
+      properties:
+        id: { type: string, format: uuid }
+        handle: { type: string }
+        email: { type: string, format: email, nullable: true }
+        status:
+          type: string
+          enum: [pending, provisioning, ready, suspended, deleted]
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateContainerRequest:
+      type: object
+      required: [tenant_id, image]
+      properties:
+        tenant_id: { type: string, format: uuid }
+        image:
+          type: string
+          description: Container image reference, e.g. ghcr.io/combhq/llm-proxy:v1.
+        config:
+          type: object
+          description: Per-container env, resource limits, etc.
+          additionalProperties: true
+
+    Container:
+      type: object
+      required: [id, tenant_id, status, image]
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        host_id: { type: string, format: uuid, nullable: true }
+        image: { type: string }
+        handle: { type: string, description: Subdomain handle. }
+        status:
+          type: string
+          enum: [pending, creating, running, failed, terminating, terminated]
+        config:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RegisterHostRequest:
+      type: object
+      required: [bootstrap_token, agent_version]
+      properties:
+        bootstrap_token:
+          type: string
+          description: One-time bootstrap token issued by a driver. 15-min TTL.
+        agent_version: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+          description: Placement labels (e.g. region, tier).
+
+    Host:
+      type: object
+      required: [id, provider, capacity, current_load, status]
+      properties:
+        id: { type: string, format: uuid }
+        provider:
+          type: string
+          enum: [manual, hetzner, aws, gcp, digitalocean, vultr]
+        provider_id: { type: string, nullable: true }
+        capacity: { type: integer, minimum: 0 }
+        current_load: { type: integer, minimum: 0 }
+        status:
+          type: string
+          enum: [launching, ready, unhealthy, unreachable, draining, terminated]
+        agent_version: { type: string, nullable: true }
+        last_heartbeat_at: { type: string, format: date-time, nullable: true }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        created_at: { type: string, format: date-time }

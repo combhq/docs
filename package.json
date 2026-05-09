@@ -7,9 +7,14 @@
   "scripts": {
     "docs:dev": "vitepress dev .",
     "docs:build": "vitepress build .",
-    "docs:preview": "vitepress preview ."
+    "docs:preview": "vitepress preview .",
+    "sync:openapi": "gh api repos/combhq/control-plane/contents/internal/restapi/openapi.yaml -H 'Accept: application/vnd.github.raw' > .vitepress/openapi.yaml && echo 'Updated .vitepress/openapi.yaml'"
   },
   "devDependencies": {
     "vitepress": "^1.6.3"
+  },
+  "dependencies": {
+    "vitepress-openapi": "^0.1.16",
+    "vue": "^3.5.34"
   }
 }

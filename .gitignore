@@ -33,3 +33,8 @@ vendor/
 .env.local
 *.pem
 *.key
+
+# Node / VitePress
+node_modules/
+.vitepress/dist/
+.vitepress/cache/

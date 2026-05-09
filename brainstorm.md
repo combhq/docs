@@ -1,5 +1,9 @@
 # combhq — Architecture Brainstorm
 
+::: warning Original design document
+This is the original pre-implementation design doc, kept here verbatim as a historical reference. The user-facing docs (linked in the sidebar) are the current, organized reorganization of the same material — start there if you're trying to use or understand combhq today. This page is most useful for tracing the rationale behind a decision back to where it was first written down.
+:::
+
 > Working document. Pre-implementation. Some items deferred (marked accordingly).
 > GitHub org: `combhq`
 

@@ -1,4 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { defineConfig } from 'vitepress'
+import { parseSpec, useOpenapi } from 'vitepress-openapi'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const openapiSpec = parseSpec(
+  readFileSync(resolve(__dirname, 'openapi.yaml'), 'utf-8'),
+)
+
+useOpenapi({ spec: openapiSpec })
 
 export default defineConfig({
   title: 'combhq',

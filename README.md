@@ -40,12 +40,26 @@ npm run docs:preview  # serve the built site locally
 
 Node ≥ 20 is recommended (matches the deploy workflow).
 
+## Syncing the OpenAPI spec
+
+The REST API page is rendered from a snapshot of the control plane's OpenAPI spec, committed at `.vitepress/openapi.yaml`. To refresh it:
+
+```bash
+npm run sync:openapi
+git diff .vitepress/openapi.yaml
+git commit -m "docs(api): sync openapi.yaml from control-plane@<sha>" .vitepress/openapi.yaml
+```
+
+The script uses `gh api` to read `combhq/control-plane/internal/restapi/openapi.yaml` (the file the control plane embeds into its binary and serves at `/openapi.yaml`). You'll need `gh auth login` once. Eventually the build can fetch this live; for now a snapshot keeps the docs build hermetic and avoids depending on a private control-plane repo at build time.
+
 ## Layout
 
 ```
 .
 ├── .vitepress/
-│   └── config.ts            nav, sidebar, theme
+│   ├── config.ts            site config
+│   ├── openapi.yaml         snapshot of control-plane's OpenAPI spec
+│   └── theme/index.ts       extends default theme + registers vitepress-openapi
 ├── index.md                 landing page
 ├── what-is-combhq.md
 ├── architecture.md

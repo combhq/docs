@@ -21,19 +21,19 @@ Container settings on the Docker side, applied on day one (these are not optiona
 ## Lifecycle
 
 ```
-pending  →  creating  →  ready  →  stopping  →  deleted
-                          ↓ ↑                          
-                         failed                        
+pending  →  creating  →  running  →  terminating  →  terminated
+                          ↓ ↑
+                         failed
 ```
 
 - **pending** — row inserted; provisioning job queued.
 - **creating** — host picked, tunnel created, `RunContainer` command sent to the agent.
-- **ready** — agent confirmed the container is up; tunnel verified by the control plane.
+- **running** — agent confirmed the container is up; tunnel verified by the control plane.
 - **failed** — image pull failed, agent timeout, or host disappeared mid-create. Retried per policy; eventually moved to dead-letter for operator attention.
-- **stopping** — `StopContainer` command in flight.
-- **deleted** — container gone, tunnel + DNS torn down.
+- **terminating** — `StopContainer` command in flight.
+- **terminated** — container gone, tunnel + DNS torn down.
 
-The end-to-end provisioning sequence is documented in [REST API → containers](../api/rest.md#containers).
+The end-to-end provisioning sequence is documented in the [REST API reference](../api/rest.md).
 
 ## Configuration
 

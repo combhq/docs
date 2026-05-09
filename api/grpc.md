@@ -1,6 +1,6 @@
 # gRPC — Agent stream
 
-The control plane exposes a gRPC server (default port 8443) that accepts a single bidirectional stream per [host](../concepts/hosts.md). The on-host agent dials in once it has a host credential (issued via [`POST /v1/hosts/register`](./rest.md#post-v1-hosts-register)) and keeps the stream open indefinitely.
+The control plane exposes a gRPC server (default port 8443) that accepts a single bidirectional stream per [host](../concepts/hosts.md). The on-host agent dials in after registering ([`POST /v1/hosts/register`](./rest.md)) and keeps the stream open indefinitely.
 
 ::: info Source of truth
 The canonical schema lives in [`combhq/proto`](https://github.com/combhq/proto). The summary below describes v1; consult the `.proto` files for exact field types and tags.
